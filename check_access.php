@@ -1,0 +1,68 @@
+<?php
+/**
+ * check_access.php
+ * AJAX endpoint that validates if user can book a specific class
+ * Returns JSON response with booking eligibility and reason for denial if applicable
+ * Called by JavaScript when user tries to book a class
+ */
+
+// Start session to access user data from login
+session_start();
+
+// Include database connection and membership rules logic
+include 'includes/db.php';
+include 'includes/membership_rules.php';
+
+// Set response type to JSON so frontend knows it's JSON data
+header('Content-Type: application/json');
+
+// Check if user is logged in - required to book any class
+if (!isset($_SESSION['user_id'])) {
+    // If not logged in, return JSON saying they can't book and why
+    echo json_encode([
+        'canBook' => false,
+        'reason' => 'Please login to book classes.'
+    ]);
+    exit;
+}
+
+// Get the class ID from the URL parameter (e.g., ?class=5)
+// intval() converts it to integer to prevent SQL injection
+$class_id = intval($_GET['class'] ?? 0);
+
+// Fetch class details (name and age group) from the database
+// Using prepared statement to safely query with the class_id
+$stmt = $conn->prepare("
+    SELECT class_name, age_group 
+    FROM classes 
+    WHERE id = ?
+");
+$stmt->bind_param("i", $class_id);
+$stmt->execute();
+$class = $stmt->get_result()->fetch_assoc();
+
+// If the class doesn't exist in database, tell user it's not found
+if (!$class) {
+    echo json_encode([
+        'canBook' => false,
+        'reason' => 'Class not found.'
+    ]);
+    exit;
+}
+
+// Determine if this is a Kids class or Adult class
+// This matters for membership type checking (Elite vs Junior plans)
+$is_kids_class = ($class['age_group'] === 'Kids');
+
+// Call the membership rules function to check if user can book this class
+// It checks membership tier, session limits, martial art restrictions, etc.
+// Returns array with 'can_book' boolean and 'reason' message
+$result = canUserBookClass($_SESSION['user_id'], $class['class_name'], $is_kids_class);
+
+// Send back the booking eligibility as JSON
+// Frontend receives this and allows or prevents the booking
+echo json_encode([
+    'canBook' => $result['can_book'],
+    'reason' => $result['reason']
+]);
+?>
