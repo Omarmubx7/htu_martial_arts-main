@@ -1497,6 +1497,44 @@ html {
 }
 
 /* ====================================== */
+/* BOOKING TOASTS */
+/* ====================================== */
+
+.booking-toast-wrapper {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 2100;
+}
+
+.booking-toast {
+    min-width: 260px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    color: var(--color-white);
+    background: rgba(26, 26, 46, 0.95);
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+    opacity: 0.98;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.booking-toast-info {
+    background: var(--color-primary);
+}
+
+.booking-toast-error {
+    background: rgba(220, 20, 60, 0.95);
+}
+
+.booking-toast-success {
+    background: rgba(52, 227, 127, 0.95);
+}
+
+/* ====================================== */
 /* ACCESSIBILITY */
 /* ====================================== */
 

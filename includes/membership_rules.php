@@ -1,52 +1,51 @@
 <?php
 /**
  * includes/membership_rules.php
- * Business logic for membership-based access + booking recording
- * Fully aligned with database IDs from attached screenshot
+ * COMPLETE & FIXED business logic for all Assignment Brief plans.
  */
+
+/**
+ * HELPER: Removes spaces/hyphens for loose matching.
+ * Example: "Muay-Thai" matches "Muay Thai" -> both become "muaythai"
+ */
+function cleanArtName($text) {
+    return strtolower(preg_replace('/[^a-zA-Z]/', '', (string)$text));
+}
 
 function normalizeMembershipType(?string $raw): string {
     $raw = strtolower(trim((string)$raw));
-
-    // Match exact strings from your database image
     if (str_contains($raw, 'junior')) return 'junior';
     if (str_contains($raw, 'elite')) return 'elite';
     if (str_contains($raw, 'advanced')) return 'advanced';
     if (str_contains($raw, 'intermediate')) return 'intermediate';
     if (str_contains($raw, 'basic')) return 'basic';
-    if (str_contains($raw, 'self-defence')) return 'self-defence'; // ID 7
-    if (str_contains($raw, 'private')) return 'private'; // ID 6
-    if (str_contains($raw, 'fitness')) return 'fitness'; // ID 8 & 9
-
+    if (str_contains($raw, 'self-defence') || str_contains($raw, 'defense')) return 'self-defence'; 
+    if (str_contains($raw, 'private')) return 'private'; 
+    if (str_contains($raw, 'fitness')) return 'fitness'; 
     return 'unknown';
 }
 
-function normalizeText(?string $value): string {
-    return strtolower(trim((string)$value));
-}
-
 /**
- * Check if user can book a class.
+ * Main Logic Function
  */
 function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false) {
     global $conn;
 
     $user_id = intval($user_id);
-    if ($user_id <= 0) {
-        return ['can_book' => false, 'reason' => 'Invalid user.'];
-    }
+    if ($user_id <= 0) return ['can_book' => false, 'reason' => 'Invalid user.'];
 
-    // Get user membership info
+    // 1. Fetch User Data (Includes 'chosen_martial_art_2' for Advanced)
     $stmt = $conn->prepare("
-        SELECT
+        SELECT 
             COALESCE(u.membership_type_id, u.membership_id) AS membership_fk,
             u.chosen_martial_art,
+            u.chosen_martial_art_2, 
             COALESCE(u.sessions_used_this_week, 0) AS sessions_used_this_week,
             m.type AS membership_type,
-            m.sessions_per_week
+            m.sessions_per_week,
+            u.created_at
         FROM users u
-        LEFT JOIN memberships m
-            ON m.id = COALESCE(u.membership_type_id, u.membership_id)
+        LEFT JOIN memberships m ON m.id = COALESCE(u.membership_type_id, u.membership_id)
         WHERE u.id = ?
         LIMIT 1
     ");
@@ -55,173 +54,139 @@ function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false) 
     $user = $stmt->get_result()->fetch_assoc();
 
     if (!$user || !$user['membership_type']) {
-        return ['can_book' => false, 'reason' => 'No active membership. Please select a plan.'];
+        return ['can_book' => false, 'reason' => 'No active membership found.'];
     }
 
-    $membership_type = normalizeMembershipType($user['membership_type']);
-    $sessions_used   = intval($user['sessions_used_this_week']);
+    // 2. Normalize Data
+    $plan           = normalizeMembershipType($user['membership_type']);
+    $sessions_used  = intval($user['sessions_used_this_week']);
     
-    $class_art  = normalizeText($class_martial_art); // e.g., "judo", "self-defence"
-    $chosen_art = normalizeText($user['chosen_martial_art']);
+    // Use cleanArtName for robust matching
+    $class_art_clean = cleanArtName($class_martial_art);
+    $user_art_1      = cleanArtName($user['chosen_martial_art']);
+    $user_art_2      = cleanArtName($user['chosen_martial_art_2'] ?? '');
 
-    // --- LOGIC SWITCHER BASED ON PLAN ---
+    // 3. Switch Logic per Plan
+    switch ($plan) {
 
-    switch ($membership_type) {
-        // --- TIER 1: Standard Plans (Basic, Intermediate, Advanced) ---
+        // =========================================================
+        // TIER 1: Basic (2 sessions) & Intermediate (3 sessions)
+        // =========================================================
         case 'basic':
         case 'intermediate':
-        case 'advanced':
-            // Rule A: Must have chosen a martial art
-            if ($chosen_art === '') {
+            // Rule A: Adults Only
+            if ($is_kids_class) {
+                return ['can_book' => false, 'reason' => 'This plan is for Adult classes only.'];
+            }
+            
+            // Rule B: Must match their ONE chosen art
+            if ($user_art_1 === '') {
                 return ['can_book' => false, 'reason' => 'Please select your preferred martial art in your profile.'];
             }
-            
-            // Rule B: Can ONLY book their chosen art
-            if ($class_art !== $chosen_art) {
-                return [
-                    'can_book' => false,
-                    'reason'   => 'Your plan is restricted to ' . $user['chosen_martial_art'] . ' classes only.'
-                ];
+            if ($class_art_clean !== $user_art_1) {
+                return ['can_book' => false, 'reason' => "Your plan is restricted to " . ucfirst($user['chosen_martial_art']) . " classes only."];
             }
 
-            // Rule C: Weekly Session Limits
-            // We use the database value first (2, 3, 5), fallback to defaults if NULL
-            $limit = $user['sessions_per_week'];
-            if ($limit === null) {
-                $limit = match ($membership_type) {
-                    'basic' => 2,
-                    'intermediate' => 3,
-                    'advanced' => 5,
-                    default => 0
-                };
-            } else {
-                $limit = intval($limit);
-            }
-
-            if ($limit > 0 && $sessions_used >= $limit) {
-                return [
-                    'can_book' => false,
-                    'reason'   => "Weekly limit reached ({$limit} sessions)."
-                ];
+            // Rule C: Weekly Limits
+            $limit = ($plan === 'basic') ? 2 : 3;
+            if ($sessions_used >= $limit) {
+                return ['can_book' => false, 'reason' => "Weekly limit reached ($limit sessions). Upgrade for more!"];
             }
             break;
 
-        // --- TIER 2: Beginners' Self-Defence (ID 7) ---
-        case 'self-defence':
-            // Rule A: Can ONLY book "Self-Defence" classes
-            // We check if the class martial art contains "defence"
-            if (!str_contains($class_art, 'defence')) {
-                 return [
-                    'can_book' => false, 
-                    'reason'   => 'This membership is for the Self-Defence course only.'
-                ];
-            }
-
-            // Rule B: Limit is hardcoded to 2 per week (as per your prompt)
-            if ($sessions_used >= 2) {
-                return [
-                    'can_book' => false, 
-                    'reason'   => "Course limit reached (2 sessions/week)."
-                ];
-            }
-
-            // Rule C: 6-week access window
-            if (!isSelfDefenceWindowOpen($user_id)) {
-                return ['can_book' => false, 'reason' => 'Self-Defence course access has expired (6-week limit).'];
-            }
-            break;
-
-        // --- TIER 3: Elite (ID 4) - Unlimited Adult ---
-        case 'elite':
+        // =========================================================
+        // TIER 2: Advanced (5 sessions, 2 Arts)
+        // =========================================================
+        case 'advanced':
+            // Rule A: Adults Only
             if ($is_kids_class) {
-                return ['can_book' => false, 'reason' => 'Elite membership is for adult classes only.'];
+                return ['can_book' => false, 'reason' => 'Advanced plan is for Adult classes only.'];
             }
-            break;
 
-        // --- TIER 4: Junior (ID 5) - Unlimited Kids ---
-        case 'junior':
-            if (!$is_kids_class) {
-                return ['can_book' => false, 'reason' => 'Junior membership is for kids classes only.'];
+            // Rule B: Must match EITHER chosen art
+            if ($user_art_1 === '' && $user_art_2 === '') {
+                return ['can_book' => false, 'reason' => 'Please select your 2 preferred martial arts in your profile.'];
             }
-            break;
             
-        // --- TIER 5: Private Tuition (ID 6) ---
-        case 'private':
-             if (!str_contains($class_art, 'private')) {
-                 return ['can_book' => false, 'reason' => 'This account is for Private Tuition bookings only.'];
-             }
-             break;
+            $match1 = ($user_art_1 !== '' && $class_art_clean === $user_art_1);
+            $match2 = ($user_art_2 !== '' && $class_art_clean === $user_art_2);
 
-        // --- TIER 6: Fitness Room (ID 8 & 9) ---
+            if (!$match1 && !$match2) {
+                return ['can_book' => false, 'reason' => "You can only book classes for your 2 chosen arts."];
+            }
+
+            // Rule C: Limit 5 sessions
+            if ($sessions_used >= 5) {
+                return ['can_book' => false, 'reason' => "Weekly limit reached (5 sessions)."];
+            }
+            break;
+
+        // =========================================================
+        // TIER 3: Elite (Unlimited)
+        // =========================================================
+        case 'elite':
+            // Rule A: Adults Only
+            if ($is_kids_class) {
+                return ['can_book' => false, 'reason' => 'Elite membership is for Adult classes only.'];
+            }
+            
+            // Rule B: No Private Tuition (Additional Cost)
+            if (str_contains($class_art_clean, 'private')) {
+                 return ['can_book' => false, 'reason' => 'Private tuition is not included in Elite membership.'];
+            }
+            
+            // Rule C: Unlimited Sessions (No check needed)
+            break;
+
+        // =========================================================
+        // TIER 4: Junior (Unlimited Kids)
+        // =========================================================
+        case 'junior':
+            // Rule A: Kids Classes ONLY
+            if (!$is_kids_class) {
+                return ['can_book' => false, 'reason' => 'Junior membership is for Kids classes only.'];
+            }
+            // Rule B: Unlimited Sessions (No check needed)
+            break;
+
+        // =========================================================
+        // TIER 5: Self-Defence Course
+        // =========================================================
+        case 'self-defence':
+            // Rule A: Only Self-Defence Classes
+            if (!str_contains($class_art_clean, 'defence')) {
+                return ['can_book' => false, 'reason' => 'This account is for the Self-Defence course only.'];
+            }
+
+            // Rule B: 2 Sessions/Week Limit
+            if ($sessions_used >= 2) {
+                return ['can_book' => false, 'reason' => "Course limit reached (2 sessions/week)."];
+            }
+
+            // Rule C: 6-Week Expiration
+            $start = new DateTime($user['created_at']);
+            $expiry = (clone $start)->modify('+6 weeks');
+            if (new DateTime() > $expiry) {
+                return ['can_book' => false, 'reason' => 'Your 6-week Self-Defence course has expired.'];
+            }
+            break;
+
+        // =========================================================
+        // TIER 6: Private Tuition & Fitness
+        // =========================================================
+        case 'private':
+            if (!str_contains($class_art_clean, 'private')) {
+                return ['can_book' => false, 'reason' => 'This account is for Private Tuition bookings only.'];
+            }
+            break;
+
         case 'fitness':
-             return ['can_book' => false, 'reason' => 'Fitness memberships cannot book martial arts classes.'];
+            return ['can_book' => false, 'reason' => 'Fitness memberships cannot book martial arts classes.'];
 
         default:
             return ['can_book' => false, 'reason' => 'Membership type not recognized. Contact support.'];
     }
 
     return ['can_book' => true, 'reason' => ''];
-}
-
-/**
- * Record booking and update session counters (transactional).
- */
-function recordBooking($user_id, $class_id) {
-    global $conn;
-
-    $user_id  = intval($user_id);
-    $class_id = intval($class_id);
-
-    if ($user_id <= 0 || $class_id <= 0) return false;
-
-    $conn->begin_transaction();
-
-    try {
-        // Prevent duplicate confirmed booking
-        $stmt = $conn->prepare("SELECT id FROM bookings WHERE user_id = ? AND class_id = ? AND status = 'confirmed' LIMIT 1");
-        $stmt->bind_param("ii", $user_id, $class_id);
-        $stmt->execute();
-        if ($stmt->get_result()->fetch_assoc()) {
-            $conn->rollback();
-            return false;
-        }
-
-        // Insert booking
-        $stmt = $conn->prepare("INSERT INTO bookings (user_id, class_id, booking_date) VALUES (?, ?, CURDATE())");
-        $stmt->bind_param("ii", $user_id, $class_id);
-        $stmt->execute();
-
-        // Update user session count
-        $stmt = $conn->prepare("UPDATE users SET sessions_used_this_week = COALESCE(sessions_used_this_week, 0) + 1 WHERE id = ?");
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-
-        $conn->commit();
-        return true;
-
-    } catch (Throwable $e) {
-        $conn->rollback();
-        return false;
-    }
-}
-
-function resetWeeklySessions() {
-    global $conn;
-    $stmt = $conn->prepare("UPDATE users SET sessions_used_this_week = 0");
-    $stmt->execute();
-    $stmt->close();
-    return true;
-}
-
-function isSelfDefenceWindowOpen(int $user_id): bool {
-    global $conn;
-    $stmt = $conn->prepare("SELECT created_at FROM users WHERE id = ? LIMIT 1");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $created = $stmt->get_result()->fetch_assoc()['created_at'] ?? null;
-    if (!$created) return false;
-    $start = new DateTime($created);
-    $end   = (clone $start)->modify('+6 weeks');
-    return new DateTime() <= $end;
 }
 ?>

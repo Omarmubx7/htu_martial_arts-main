@@ -183,6 +183,50 @@
     const initialFilter = document.querySelector('.schedule-filters .filter-btn.active');
     applyScheduleFilter((initialFilter && initialFilter.dataset.filter) || 'all');
   }
+
+  // ============================================
+  // BOOKING HELPERS
+  // ============================================
+  const bookingToastWrapper = document.createElement('div');
+  bookingToastWrapper.className = 'booking-toast-wrapper';
+  document.body.appendChild(bookingToastWrapper);
+
+  const showBookingNotice = (message, intent = 'info') => {
+    const notice = document.createElement('div');
+    notice.className = `booking-toast booking-toast-${intent}`;
+    notice.textContent = message;
+    bookingToastWrapper.appendChild(notice);
+    setTimeout(() => notice.remove(), 4200);
+  };
+
+  const handleValidateBooking = async (classId, className, event) => {
+    if (event && typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+
+    if (!classId) {
+      showBookingNotice('Missing class identifier.', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch(`check_access.php?class=${encodeURIComponent(classId)}`, { credentials: 'same-origin' });
+      if (!response.ok) {
+        throw new Error('Server error validating class.');
+      }
+      const payload = await response.json();
+      if (payload.canBook) {
+        window.location.href = `book_class.php?id=${encodeURIComponent(classId)}`;
+        return;
+      }
+      showBookingNotice(`${className}: ${payload.reason || 'Access denied.'}`, 'error');
+    } catch (err) {
+      console.error(err);
+      showBookingNotice('Unable to check booking eligibility. Try again later.', 'error');
+    }
+  };
+
+  window.validateBooking = handleValidateBooking;
   
   console.log('🥋 HTU Martial Arts - Refined theme loaded');
   

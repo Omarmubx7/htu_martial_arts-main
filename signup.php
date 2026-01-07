@@ -30,6 +30,8 @@ if ($planResult && $planResult->num_rows === 1) {
 $error = '';
 $username = '';
 $email = '';
+$martialArt = '';
+$martialArtSecondary = '';
 
 // Handle form submission when user clicks Create Account button
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -39,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     $planId = isset($_POST['plan_id']) ? intval($_POST['plan_id']) : null;
     $martialArt = trim($_POST['martial_art'] ?? '');
+    $martialArtSecondary = trim($_POST['martial_art_secondary'] ?? '');
 
     // Query database to get membership type - needed to check which fields are required
     // Like if they picked "Basic" plan, they MUST choose a martial art
@@ -77,9 +80,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             // INSERT statement to add new user to database
             // Using prepared statement with ? placeholders to prevent SQL injection
-            $insertStmt = $conn->prepare("INSERT INTO users (username, email, password, role, membership_id, chosen_martial_art) VALUES (?, ?, ?, 'member', ?, ?)");
-            // Bind the values - 's' for string, 'i' for integer. "ssssi" = string, string, string, string, integer
-            $insertStmt->bind_param("ssssi", $username, $email, $hashedPassword, $planId, $martialArt);
+            $insertStmt = $conn->prepare("INSERT INTO users (username, email, password, role, membership_id, chosen_martial_art, chosen_martial_art_2) VALUES (?, ?, ?, 'member', ?, ?, ?)");
+            // Bind the values - 's' for string, 'i' for integer. "sssiss" = string, string, string, integer, string, string
+            $insertStmt->bind_param("sssiss", $username, $email, $hashedPassword, $planId, $martialArt, $martialArtSecondary);
 
             // Execute the INSERT query - if it works, the new user is now in the database
             if ($insertStmt->execute()) {
@@ -166,20 +169,33 @@ include 'includes/header.php';
                 <label class="form-label mb-2 fw-600 text-deep-dark"><i class="bi bi-star me-2 text-primary"></i>Choose Your Martial Art</label>
                 <select name="martial_art" class="form-select" required>
                     <option value="">Select a martial art...</option>
-                    <option value="Jiu-jitsu">Jiu-jitsu</option>
-                    <option value="Judo">Judo</option>
-                    <option value="Karate">Karate</option>
-                    <option value="Muay Thai">Muay Thai</option>
+                    <option value="Jiu-jitsu" <?php echo ($martialArt === 'Jiu-jitsu') ? 'selected' : ''; ?>>Jiu-jitsu</option>
+                    <option value="Judo" <?php echo ($martialArt === 'Judo') ? 'selected' : ''; ?>>Judo</option>
+                    <option value="Karate" <?php echo ($martialArt === 'Karate') ? 'selected' : ''; ?>>Karate</option>
+                    <option value="Muay Thai" <?php echo ($martialArt === 'Muay Thai') ? 'selected' : ''; ?>>Muay Thai</option>
                 </select>
                 <small class="text-muted d-block mt-2">
                     You will have access to classes in your selected martial art.
                     <?php 
                     if ($selectedPlan['type'] === 'Basic') echo 'Max 2 sessions per week.';
                     elseif ($selectedPlan['type'] === 'Intermediate') echo 'Max 3 sessions per week.';
-                    elseif ($selectedPlan['type'] === 'Advanced') echo 'You can select a second martial art later. Max 5 sessions per week.';
+                    elseif ($selectedPlan['type'] === 'Advanced') echo 'You can select a second martial art below. Max 5 sessions per week.';
                     ?>
                 </small>
             </div>
+            <?php if ($selectedPlan && $selectedPlan['type'] === 'Advanced'): ?>
+            <div class="mb-4">
+                <label class="form-label mb-2 fw-600 text-deep-dark"><i class="bi bi-star me-2 text-primary"></i>Optional Second Martial Art</label>
+                <select name="martial_art_secondary" class="form-select">
+                    <option value="">Choose another martial art (optional)</option>
+                    <option value="Jiu-jitsu" <?php echo ($martialArtSecondary === 'Jiu-jitsu') ? 'selected' : ''; ?>>Jiu-jitsu</option>
+                    <option value="Judo" <?php echo ($martialArtSecondary === 'Judo') ? 'selected' : ''; ?>>Judo</option>
+                    <option value="Karate" <?php echo ($martialArtSecondary === 'Karate') ? 'selected' : ''; ?>>Karate</option>
+                    <option value="Muay Thai" <?php echo ($martialArtSecondary === 'Muay Thai') ? 'selected' : ''; ?>>Muay Thai</option>
+                </select>
+                <small class="text-muted d-block mt-2">Chosen second arts help you book dual-specialty sessions faster and satisfy the Advanced plan allowance.</small>
+            </div>
+            <?php endif; ?>
             <?php elseif ($selectedPlan && $selectedPlan['type'] === 'Junior'): ?>
             <div class="alert alert-info">
                 <i class="bi bi-info-circle me-2"></i>Your plan includes access to all Kids classes!

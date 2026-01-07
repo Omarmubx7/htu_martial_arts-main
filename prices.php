@@ -1,28 +1,64 @@
 <?php 
 session_start();
 include 'includes/db.php';
+include 'includes/membership_rules.php';
 $pageTitle = "Prices";
 
-// Handle membership selection for logged-in users
-// When a logged-in user clicks "Select Plan" button, their membership gets updated
+$martialArts = ['Jiu-jitsu', 'Judo', 'Karate', 'Muay Thai'];
+$currentPlanNormalized = '';
+$currentPrimaryArt = '';
+$currentSecondaryArt = '';
+$errorMessage = '';
+
+if (isset($_SESSION['user_id'])) {
+    $userInfoStmt = $conn->prepare('SELECT u.chosen_martial_art, u.chosen_martial_art_2, m.type AS membership_type FROM users u LEFT JOIN memberships m ON u.membership_id = m.id WHERE u.id = ?');
+    if ($userInfoStmt) {
+        $userInfoStmt->bind_param('i', $_SESSION['user_id']);
+        $userInfoStmt->execute();
+        $userInfo = $userInfoStmt->get_result()->fetch_assoc() ?: [];
+        $currentPlanNormalized = normalizeMembershipType($userInfo['membership_type'] ?? '');
+        $currentPrimaryArt = $userInfo['chosen_martial_art'] ?? '';
+        $currentSecondaryArt = $userInfo['chosen_martial_art_2'] ?? '';
+        $userInfoStmt->close();
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
-    // Get the plan ID from the form submission
     $planId = isset($_POST['plan_id']) ? intval($_POST['plan_id']) : null;
-    
     if ($planId) {
-        // UPDATE query to change the user's membership_id in the database
-        // Using prepared statement - the ? placeholders are filled with actual values safely
-        $updateStmt = $conn->prepare("UPDATE users SET membership_id = ? WHERE id = ?");
-        // Bind parameters: both are integers ('ii') - first is plan ID, second is user ID
-        $updateStmt->bind_param("ii", $planId, $_SESSION['user_id']);
-        // Execute the update - now the database has the new membership for this user
-        $updateStmt->execute();
-        
-        // Set a success message to display after redirect
-        $_SESSION['success_message'] = 'Membership plan updated successfully!';
-        // Send them to dashboard to see their new plan
-        header('Location: dashboard.php');
-        exit();
+        $planStmt = $conn->prepare('SELECT type FROM memberships WHERE id = ?');
+        if ($planStmt) {
+            $planStmt->bind_param('i', $planId);
+            $planStmt->execute();
+            $planData = $planStmt->get_result()->fetch_assoc();
+            $planStmt->close();
+        } else {
+            $planData = [];
+        }
+
+        $selectedPlanType = $planData['type'] ?? '';
+        $selectedPlanNormalized = normalizeMembershipType($selectedPlanType);
+        $requiresSecondArt = $selectedPlanNormalized === 'advanced' && in_array($currentPlanNormalized, ['basic', 'intermediate'], true);
+        $primaryArtInput = trim($_POST['martial_art'] ?? '');
+        $secondaryArtInput = trim($_POST['martial_art_secondary'] ?? '');
+
+        if ($requiresSecondArt && $secondaryArtInput === '') {
+            $errorMessage = 'Please select your second martial art before upgrading to the Advanced plan.';
+        } else {
+            $martialArtToSave = $primaryArtInput !== '' ? $primaryArtInput : $currentPrimaryArt;
+            $martialArtSecondaryToSave = $secondaryArtInput !== '' ? $secondaryArtInput : $currentSecondaryArt;
+
+            $updateStmt = $conn->prepare('UPDATE users SET membership_id = ?, chosen_martial_art = ?, chosen_martial_art_2 = ? WHERE id = ?');
+            if ($updateStmt) {
+                $updateStmt->bind_param('issi', $planId, $martialArtToSave, $martialArtSecondaryToSave, $_SESSION['user_id']);
+                if ($updateStmt->execute()) {
+                    $_SESSION['success_message'] = 'Membership plan updated successfully!';
+                    header('Location: dashboard.php');
+                    exit();
+                }
+            }
+            $errorMessage = 'Unable to update your membership. Please try again.';
+        }
     }
 }
 
@@ -41,6 +77,11 @@ include 'includes/header.php';
         <!-- Subheading with standard color and sizing -->
         <p style="color: #666; font-size: 1.05rem; font-weight: 400;">Choose the plan that fits your training goals</p>
     </div>
+    <?php if (!empty($errorMessage)): ?>
+    <div class="alert alert-error text-center mb-4">
+        <?php echo htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8'); ?>
+    </div>
+    <?php endif; ?>
     
     <!-- Responsive grid for membership cards -->
     <!-- Using Bootstrap grid system for mobile responsiveness -->
@@ -55,6 +96,8 @@ include 'includes/header.php';
         // Check if any plans exist in database, then loop through each one
         if ($result->num_rows > 0) {
             while($row = $result->fetch_assoc()) {
+                $planNormalized = normalizeMembershipType($row['type']);
+                $requiresSecondArtField = $planNormalized === 'advanced' && in_array($currentPlanNormalized, ['basic', 'intermediate'], true);
                 // Create a membership card for each plan
                 echo '<div class="col-md-4 col-lg-3">';
                 // Card wrapper with consistent glass-panel styling
@@ -86,6 +129,19 @@ include 'includes/header.php';
                     // When submitted, POSTs to this page and updates user's membership
                     echo '      <form method="POST" style="width: 100%;">';
                     echo '        <input type="hidden" name="plan_id" value="' . intval($row['id']) . '">';
+                    if ($requiresSecondArtField) {
+                        echo '        <div class="mb-3">';
+                        echo '          <label class="form-label mb-2 fw-600 text-deep-dark">Pick a second martial art</label>';
+                        echo '          <select name="martial_art_secondary" class="form-select" required>';
+                        echo '            <option value="">Select another martial art...</option>';
+                        foreach ($martialArts as $art) {
+                            $sanitized = htmlspecialchars($art, ENT_QUOTES, 'UTF-8');
+                            echo '            <option value="' . $sanitized . '">' . $sanitized . '</option>';
+                        }
+                        echo '          </select>';
+                        echo '          <small class="text-muted d-block mt-2">Advanced upgrades require two disciplines; please choose your additional art.</small>';
+                        echo '        </div>';
+                    }
                     echo '        <button type="submit" class="btn w-100 fw-bold" style="background: linear-gradient(135deg, #DC143C 0%, #a00000 100%); color: white; padding: 12px; border-radius: 8px; border: none; font-size: 0.9rem; transition: all 0.3s ease; box-shadow: 0 4px 16px rgba(220,20,60,0.3);">';
                     echo '          <i class="bi bi-check-circle me-2"></i>Select Plan';
                     echo '        </button>';

@@ -2,6 +2,7 @@
 session_start();
 include 'includes/db.php';
 include 'includes/membership_rules.php';
+include 'includes/bookings.php';
 
 // Require login - must be authenticated to book a class
 if (!isset($_SESSION['user_id'])) {
@@ -26,21 +27,38 @@ if (!$class) {
 
 // Verify user can actually book this class based on their membership and chosen martial art
 // This calls a function from membership_rules.php that checks permissions
-$access_check = canUserBookClass(
-    $_SESSION['user_id'],
-    $class['class_name'],
-    $class['age_group'] === 'Kids'  // Pass true if this is a kids class
-);
+try {
+    $conn->begin_transaction();
 
-// If user doesn't have access to this class (wrong membership tier, wrong martial art), redirect
-if (!$access_check['can_book']) {
+    $access_check = canUserBookClass(
+        $_SESSION['user_id'],
+        $class['class_name'],
+        $class['age_group'] === 'Kids'
+    );
+
+    if (!$access_check['can_book']) {
+        throw new RuntimeException($access_check['reason'] ?? 'You cannot book this class.');
+    }
+
+    if (bookingExists($_SESSION['user_id'], $class_id)) {
+        throw new RuntimeException('You already booked this class.');
+    }
+
+    if (!recordBooking($_SESSION['user_id'], $class_id)) {
+        throw new RuntimeException('Failed to save your booking.');
+    }
+
+    if (!incrementUserSessions($_SESSION['user_id'])) {
+        throw new RuntimeException('Failed to update your weekly session count.');
+    }
+
+    $conn->commit();
+} catch (Throwable $e) {
+    $conn->rollback();
+    $_SESSION['booking_error'] = $e->getMessage();
     header('Location: classes_premium.php');
     exit;
 }
-
-// Record the booking in database - user successfully booked this class
-// This function saves the booking so we can track which classes the user is taking
-recordBooking($_SESSION['user_id'], $class_id);
 ?>
 <!DOCTYPE html>
 <html lang="en">

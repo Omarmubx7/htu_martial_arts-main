@@ -25,6 +25,12 @@ include 'includes/header.php';
 <section class="schedule-section">
     <div class="container">
         <h2 class="text-center" style="margin-bottom: 50px;">Weekly Timetable</h2>
+        <?php if (!empty($_SESSION['booking_error'])): ?>
+            <div class="alert alert-danger text-center mt-3">
+                <?php echo htmlspecialchars($_SESSION['booking_error']); ?>
+            </div>
+            <?php unset($_SESSION['booking_error']); ?>
+        <?php endif; ?>
         
         <!-- Filter Buttons - let users filter by martial art or kids classes -->
         <!-- These buttons have JavaScript event listeners to filter the schedule dynamically -->

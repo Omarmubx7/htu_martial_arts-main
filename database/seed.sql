@@ -175,6 +175,7 @@ CREATE TABLE `users` (
   `membership_type_id` int(11) DEFAULT NULL,
   `membership_id` int(11) DEFAULT NULL,
   `chosen_martial_art` varchar(50) DEFAULT NULL,
+  `chosen_martial_art_2` varchar(50) DEFAULT NULL,
   `sessions_remaining` int(11) DEFAULT 0,
   `sessions_used_this_week` int(11) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -186,11 +187,11 @@ CREATE TABLE `users` (
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `username`, `email`, `password`, `membership_type_id`, `membership_id`, `chosen_martial_art`, `sessions_remaining`, `sessions_used_this_week`, `created_at`, `is_admin`, `role`) VALUES
-(1, 'Admin User', 'admin@htu.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NULL, NULL, 'All', 0, 0, '2025-12-29 18:16:22', 1, 'admin'),
-(2, 'Basic Joe', 'basic@test.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NULL, NULL, 'Judo', 0, 0, '2025-12-29 18:16:22', 0, 'member'),
-(3, 'Self Defence Sarah', 'sarah@test.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NULL, NULL, 'Self-Defence', 0, 0, '2025-12-29 18:16:22', 0, 'member'),
-(4, 'omar mubaidin', 'omarmub@gmail.com', '$2y$10$mjab3NQHKdDKRrmmMsxp2OgAvqZ9mVCd4Uy/EhartBACqqMIDfFIe', NULL, 4, '0', 0, 1, '2025-12-29 21:14:04', 0, 'member');
+INSERT INTO `users` (`id`, `username`, `email`, `password`, `membership_type_id`, `membership_id`, `chosen_martial_art`, `chosen_martial_art_2`, `sessions_remaining`, `sessions_used_this_week`, `created_at`, `is_admin`, `role`) VALUES
+(1, 'Admin User', 'admin@htu.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NULL, NULL, 'All', NULL, 0, 0, '2025-12-29 18:16:22', 1, 'admin'),
+(2, 'Basic Joe', 'basic@test.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NULL, NULL, 'Judo', NULL, 0, 0, '2025-12-29 18:16:22', 0, 'member'),
+(3, 'Self Defence Sarah', 'sarah@test.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NULL, NULL, 'Self-Defence', NULL, 0, 0, '2025-12-29 18:16:22', 0, 'member'),
+(4, 'omar mubaidin', 'omarmub@gmail.com', '$2y$10$mjab3NQHKdDKRrmmMsxp2OgAvqZ9mVCd4Uy/EhartBACqqMIDfFIe', NULL, 4, '0', NULL, 0, 1, '2025-12-29 21:14:04', 0, 'member');
 
 --
 -- Indexes for dumped tables

@@ -1,16 +1,83 @@
 <?php
-// SECURITY: Start session immediately to secure session handling
 session_start();
 include 'includes/db.php';
+include 'includes/bookings.php';
+include 'includes/membership_rules.php';
 
-// Require authentication - if user not logged in, kick them to login page
-// This protects the dashboard from being viewed by anyone who isn't authenticated
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit();
 }
 
 $pageTitle = 'Dashboard';
+
+$dashboardError = '';
+$successMessage = $_SESSION['success_message'] ?? '';
+if (!empty($successMessage)) {
+    unset($_SESSION['success_message']);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $userId = intval($_SESSION['user_id']);
+
+    if (isset($_POST['update_martial_art'])) {
+        $primarySelection = trim($_POST['martial_art'] ?? '');
+        $secondarySelection = trim($_POST['martial_art_secondary'] ?? '');
+
+        $planStmt = $conn->prepare('SELECT m.type AS membership_type FROM users u LEFT JOIN memberships m ON u.membership_id = m.id WHERE u.id = ?');
+        if ($planStmt) {
+            $planStmt->bind_param('i', $userId);
+            $planStmt->execute();
+            $planResult = $planStmt->get_result();
+            $currentPlanType = $planResult && $planResult->num_rows === 1 ? $planResult->fetch_assoc()['membership_type'] ?? '' : '';
+            $planStmt->close();
+        } else {
+            $currentPlanType = '';
+        }
+
+        $normalizedPlan = normalizeMembershipType($currentPlanType);
+
+        if (in_array($normalizedPlan, ['basic', 'intermediate'], true)) {
+            if ($primarySelection === '') {
+                $dashboardError = 'Pick a martial art before saving your profile.';
+            }
+            $secondarySelection = '';
+        } elseif ($normalizedPlan === 'advanced') {
+            if ($primarySelection === '' || $secondarySelection === '') {
+                $dashboardError = 'Advanced members must select two martial arts.';
+            } elseif (cleanArtName($primarySelection) === cleanArtName($secondarySelection)) {
+                $dashboardError = 'Primary and secondary martial arts must be different.';
+            }
+        } else {
+            $dashboardError = 'Martial art preferences can only be updated for Basic, Intermediate, or Advanced plans.';
+        }
+
+        if ($dashboardError === '') {
+            $updateStmt = $conn->prepare('UPDATE users SET chosen_martial_art = ?, chosen_martial_art_2 = ? WHERE id = ?');
+            if ($updateStmt) {
+                $updateStmt->bind_param('ssi', $primarySelection, $secondarySelection, $userId);
+                if ($updateStmt->execute()) {
+                    $_SESSION['success_message'] = 'Martial arts updated.';
+                    header('Location: dashboard.php');
+                    exit();
+                }
+            }
+            $dashboardError = 'Unable to save your preferences. Please try again.';
+        }
+    } elseif (isset($_POST['cancel_booking'])) {
+        $bookingId = intval($_POST['booking_id'] ?? 0);
+        if ($bookingId <= 0) {
+            $dashboardError = 'Invalid booking selected.';
+        } elseif (cancelBooking($bookingId, $userId)) {
+            decrementUserSessions($userId);
+            $_SESSION['success_message'] = 'Booking cancelled and your session credit was restored.';
+            header('Location: dashboard.php');
+            exit();
+        } else {
+            $dashboardError = 'Unable to cancel the booking. Please try again.';
+        }
+    }
+}
 
 // Fetch user details with their membership information from database using prepared statements
 // Using prepared statement with a JOIN to get both user info AND their membership plan
@@ -20,7 +87,7 @@ $user = null;
 $membership = null;
 // This SELECT statement JOINs the users table with the memberships table
 // So we get the user's name, email, role, AND their membership type, price, description all at once
-$stmt = $conn->prepare('SELECT u.username, u.email, u.role, u.membership_id, m.type as name, m.price, m.description FROM users u LEFT JOIN memberships m ON u.membership_id = m.id WHERE u.id = ?');
+$stmt = $conn->prepare('SELECT u.username, u.email, u.role, u.membership_id, u.chosen_martial_art, u.chosen_martial_art_2, m.type as membership_label, m.price, m.description, m.type as membership_type FROM users u LEFT JOIN memberships m ON u.membership_id = m.id WHERE u.id = ?');
 $stmt->bind_param('i', $userId);  // 'i' means it's an integer parameter
 $stmt->execute();
 $result = $stmt->get_result();
@@ -42,17 +109,33 @@ if ($result && $result->num_rows === 1) {
     // SECURITY: Build membership array only when present
     if ($user['membership_id']) {
         $membership = [
-            'name' => $user['name'],
+            'name' => $user['membership_label'],
             'price' => $user['price'],
             'description' => $user['description']
         ];
     }
 }
 
+$userPrimaryMartialArt = $user ? ($user['chosen_martial_art'] ?? '') : '';
+$userSecondaryMartialArt = $user ? ($user['chosen_martial_art_2'] ?? '') : '';
+$currentPlanNormalized = $user ? normalizeMembershipType($user['membership_type'] ?? '') : '';
+
+$martialArts = ['Jiu-jitsu', 'Judo', 'Karate', 'Muay Thai'];
+
 include 'includes/header.php';
 ?>
 
 <div class="container page-section">
+    <?php if (!empty($successMessage)): ?>
+    <div class="alert alert-success text-center">
+        <?php echo htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8'); ?>
+    </div>
+    <?php endif; ?>
+    <?php if (!empty($dashboardError)): ?>
+    <div class="alert alert-error text-center">
+        <?php echo htmlspecialchars($dashboardError, ENT_QUOTES, 'UTF-8'); ?>
+    </div>
+    <?php endif; ?>
     <!-- Header with greeting - style="font-size: 2.5rem" makes it big and prominent -->
     <div class="text-center mb-5">
         <h2 class="fw-bold text-deep-dark" style="margin-bottom: 0.5rem;"><i class="bi bi-speedometer2 me-3 text-primary"></i>My Dashboard</h2>
@@ -120,6 +203,49 @@ include 'includes/header.php';
         </div>
     </div>
 
+    <div class="row g-4 mt-3">
+        <div class="col-12">
+            <div class="glass-panel">
+                <div class="d-flex align-items-center mb-4">
+                    <i class="bi bi-shield-check text-primary" style="font-size: 2.5rem;"></i>
+                    <h5 class="ms-3 mb-0 fw-bold text-deep-dark">Martial Art Preferences</h5>
+                </div>
+                <?php if (in_array($currentPlanNormalized, ['basic', 'intermediate', 'advanced'], true)): ?>
+                <form method="POST" class="row g-3 align-items-end">
+                    <input type="hidden" name="update_martial_art" value="1">
+                    <div class="col-md-6">
+                        <label class="form-label fw-600 text-deep-dark">Primary Martial Art</label>
+                        <select name="martial_art" class="form-select" required>
+                            <option value="">Select martial art...</option>
+                            <?php foreach ($martialArts as $art): ?>
+                                <option value="<?php echo htmlspecialchars($art, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($userPrimaryMartialArt === $art) ? 'selected' : ''; ?>><?php echo htmlspecialchars($art, ENT_QUOTES, 'UTF-8'); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted">Change your main discipline anytime without altering your membership.</small>
+                    </div>
+                    <?php if ($currentPlanNormalized === 'advanced'): ?>
+                    <div class="col-md-6">
+                        <label class="form-label fw-600 text-deep-dark">Secondary Martial Art</label>
+                        <select name="martial_art_secondary" class="form-select" required>
+                            <option value="">Select another martial art...</option>
+                            <?php foreach ($martialArts as $art): ?>
+                                <option value="<?php echo htmlspecialchars($art, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($userSecondaryMartialArt === $art) ? 'selected' : ''; ?>><?php echo htmlspecialchars($art, ENT_QUOTES, 'UTF-8'); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted">Advanced accounts can book two disciplines; both fields are required.</small>
+                    </div>
+                    <?php endif; ?>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-pencil-square me-2"></i>Save martial arts</button>
+                    </div>
+                </form>
+                <?php else: ?>
+                <p class="text-muted mb-0">Martial art selection is available for Basic, Intermediate, or Advanced members. <a href="prices.php" class="text-primary fw-bold">Upgrade your plan</a> to manage your disciplines.</p>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
     <!-- Social Features Section -->
     <div class="row g-4 mt-3">
         <div class="col-12">
@@ -139,6 +265,7 @@ include 'includes/header.php';
                                 <th>Time</th>
                                 <th>Booked</th>
                                 <th>Status</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -149,6 +276,15 @@ include 'includes/header.php';
                                 <td><?php echo htmlspecialchars(date('g:i A', strtotime($booking['start_time'])) . ' - ' . date('g:i A', strtotime($booking['end_time'])), ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td><?php echo htmlspecialchars(date('M d, Y', strtotime($booking['booking_date'])), ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td><span class="badge bg-success">Confirmed</span></td>
+                                <td>
+                                    <form method="POST">
+                                        <input type="hidden" name="booking_id" value="<?php echo intval($booking['booking_id']); ?>">
+                                        <input type="hidden" name="cancel_booking" value="1">
+                                        <button type="submit" class="btn btn-link text-danger p-0" onclick="return confirm('Cancel this booking? You will get the session back.');">
+                                            <i class="bi bi-x-circle me-1"></i>Cancel
+                                        </button>
+                                    </form>
+                                </td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
