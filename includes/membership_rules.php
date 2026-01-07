@@ -28,7 +28,7 @@ function normalizeMembershipType(?string $raw): string {
 /**
  * Main Logic Function
  */
-function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false) {
+function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false, $class_name = '') {
     global $conn;
 
     $user_id = intval($user_id);
@@ -65,6 +65,8 @@ function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false) 
     $class_art_clean = cleanArtName($class_martial_art);
     $user_art_1      = cleanArtName($user['chosen_martial_art']);
     $user_art_2      = cleanArtName($user['chosen_martial_art_2'] ?? '');
+    $normalized_class_name = strtolower(trim((string)$class_name));
+    $is_general_access_class = $normalized_class_name !== '' && (str_contains($normalized_class_name, 'open mat') || str_contains($normalized_class_name, 'personal training'));
 
     // 3. Switch Logic per Plan
     switch ($plan) {
@@ -78,13 +80,14 @@ function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false) 
             if ($is_kids_class) {
                 return ['can_book' => false, 'reason' => 'This plan is for Adult classes only.'];
             }
-            
-            // Rule B: Must match their ONE chosen art
-            if ($user_art_1 === '') {
-                return ['can_book' => false, 'reason' => 'Please select your preferred martial art in your profile.'];
-            }
-            if ($class_art_clean !== $user_art_1) {
-                return ['can_book' => false, 'reason' => "Your plan is restricted to " . ucfirst($user['chosen_martial_art']) . " classes only."];
+            if (!$is_general_access_class) {
+                // Rule B: Must match their ONE chosen art
+                if ($user_art_1 === '') {
+                    return ['can_book' => false, 'reason' => 'Please select your preferred martial art in your profile.'];
+                }
+                if ($class_art_clean !== $user_art_1) {
+                    return ['can_book' => false, 'reason' => "Your plan is restricted to " . ucfirst($user['chosen_martial_art']) . " classes only."];
+                }
             }
 
             // Rule C: Weekly Limits
@@ -103,16 +106,18 @@ function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false) 
                 return ['can_book' => false, 'reason' => 'Advanced plan is for Adult classes only.'];
             }
 
-            // Rule B: Must match EITHER chosen art
-            if ($user_art_1 === '' && $user_art_2 === '') {
-                return ['can_book' => false, 'reason' => 'Please select your 2 preferred martial arts in your profile.'];
-            }
-            
-            $match1 = ($user_art_1 !== '' && $class_art_clean === $user_art_1);
-            $match2 = ($user_art_2 !== '' && $class_art_clean === $user_art_2);
+            if (!$is_general_access_class) {
+                // Rule B: Must match EITHER chosen art
+                if ($user_art_1 === '' && $user_art_2 === '') {
+                    return ['can_book' => false, 'reason' => 'Please select your 2 preferred martial arts in your profile.'];
+                }
+                
+                $match1 = ($user_art_1 !== '' && $class_art_clean === $user_art_1);
+                $match2 = ($user_art_2 !== '' && $class_art_clean === $user_art_2);
 
-            if (!$match1 && !$match2) {
-                return ['can_book' => false, 'reason' => "You can only book classes for your 2 chosen arts."];
+                if (!$match1 && !$match2) {
+                    return ['can_book' => false, 'reason' => "You can only book classes for your 2 chosen arts."];
+                }
             }
 
             // Rule C: Limit 5 sessions

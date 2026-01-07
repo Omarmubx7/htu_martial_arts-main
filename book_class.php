@@ -13,8 +13,8 @@ if (!isset($_SESSION['user_id'])) {
 $class_id = intval($_GET['id'] ?? 0);  // Get class ID from URL, convert to integer for safety
 
 // Fetch the class details from database using prepared statement
-// This gets the class name, schedule, age group - need this info to display confirmation
-$stmt = $conn->prepare("SELECT id, class_name, day_of_week, start_time, end_time, age_group FROM classes WHERE id = ?");
+// This gets the class name, schedule, martial art, and age group - need this info to display confirmation
+$stmt = $conn->prepare("SELECT id, class_name, martial_art, day_of_week, start_time, end_time, age_group FROM classes WHERE id = ?");
 $stmt->bind_param("i", $class_id);
 $stmt->execute();
 $class = $stmt->get_result()->fetch_assoc();  // Get the class data
@@ -32,8 +32,9 @@ try {
 
     $access_check = canUserBookClass(
         $_SESSION['user_id'],
-        $class['class_name'],
-        $class['age_group'] === 'Kids'
+        $class['martial_art'],
+        $class['age_group'] === 'Kids',
+        $class['class_name']
     );
 
     if (!$access_check['can_book']) {

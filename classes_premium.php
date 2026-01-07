@@ -65,7 +65,8 @@ include 'includes/header.php';
                     $access_check = canUserBookClass(
                         $_SESSION['user_id'], 
                         $class['martial_art'],
-                        ($class['is_kids_class'] == 1)
+                        ($class['is_kids_class'] == 1),
+                        $class['class_name']
                     );
                 }
                 

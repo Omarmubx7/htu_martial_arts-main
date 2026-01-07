@@ -30,13 +30,8 @@ if (!isset($_SESSION['user_id'])) {
 // intval() converts it to integer to prevent SQL injection
 $class_id = intval($_GET['class'] ?? 0);
 
-// Fetch class details (name and age group) from the database
-// Using prepared statement to safely query with the class_id
-$stmt = $conn->prepare("
-    SELECT class_name, age_group 
-    FROM classes 
-    WHERE id = ?
-");
+$stmt = $conn->prepare("\n    SELECT class_name, martial_art, age_group \n    FROM classes \n    WHERE id = ?\n");
+// Execute query
 $stmt->bind_param("i", $class_id);
 $stmt->execute();
 $class = $stmt->get_result()->fetch_assoc();
@@ -57,7 +52,7 @@ $is_kids_class = ($class['age_group'] === 'Kids');
 // Call the membership rules function to check if user can book this class
 // It checks membership tier, session limits, martial art restrictions, etc.
 // Returns array with 'can_book' boolean and 'reason' message
-$result = canUserBookClass($_SESSION['user_id'], $class['class_name'], $is_kids_class);
+$result = canUserBookClass($_SESSION['user_id'], $class['martial_art'], $is_kids_class, $class['class_name']);
 
 // Send back the booking eligibility as JSON
 // Frontend receives this and allows or prevents the booking

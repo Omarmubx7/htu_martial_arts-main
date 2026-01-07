@@ -140,6 +140,11 @@ When the user actually clicks "Confirm Booking," the following **Atomic Transact
     *   Can they book "Fitness Room Slot"? **Yes.**
     *   *How?* The logic checks `if (Plan == 'fitness' AND class_name != 'Fitness Room') -> BLOCK`.
 
+### **C. Personal Training (formerly Open Mat)**
+*   **Audience:** Elite, Advanced, Intermediate, Basic members.
+*   **Logic:** Their plan already verifies the chosen martial art, but `Personal Training` is treated as a general-access session, so as long as the member has that martial art selected (or the class is generic), it counts toward the weekly allowance.
+*   **Result:** No extra restriction—if a Basic or Intermediate member wants to spend one of their weekly sessions on `Personal Training`, the system does not block it just because the class name differs from the art they originally picked.
+
 This document represents the complete logical truth of your system. Every line of code in `membership_rules.php` exists to enforce one of the sentences written above.
 
 
