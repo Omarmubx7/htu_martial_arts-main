@@ -1,12 +1,6 @@
 <?php
-session_start();
-include 'includes/db.php';
-
-// Security gate: require logged-in admin before any output
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header('Location: login.php');
-    exit();
-}
+require_once 'includes/init.php';
+requireAdmin();
 
 $pageTitle = "Admin Dashboard";
 include 'includes/header.php';

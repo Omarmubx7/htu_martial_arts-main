@@ -5,8 +5,7 @@
  * Uses prepared statements for security and password_verify() for password checking
  */
 
-session_start();
-include 'includes/db.php';
+require_once 'includes/init.php';
 $pageTitle = "Login";
 
 // ===================================================================

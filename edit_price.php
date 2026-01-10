@@ -5,15 +5,9 @@
  * Allows admins to update the price and details of existing membership tiers
  */
 
-session_start();
-include 'includes/db.php';
+require_once 'includes/init.php';
+requireAdmin();
 include 'includes/header.php';
-
-// Security Check: only admins can edit prices
-// If user is not logged in or not an admin, show "Access Denied" message
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    die("Access Denied");
-}
 
 // ====================================================================
 // STEP 1: Fetch current membership price data from database

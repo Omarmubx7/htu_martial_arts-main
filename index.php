@@ -1,8 +1,7 @@
-﻿<?php 
-session_start();
-include 'includes/db.php'; 
+﻿<?php
+require_once 'includes/init.php';
 $pageTitle = "Home";
-include 'includes/header.php'; 
+include 'includes/header.php';
 ?>
 
 <!-- ============================================== -->

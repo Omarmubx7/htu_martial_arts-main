@@ -6,19 +6,14 @@
  * Called by JavaScript when user tries to book a class
  */
 
-// Start session to access user data from login
-session_start();
-
-// Include database connection and membership rules logic
-include 'includes/db.php';
-include 'includes/membership_rules.php';
+require_once 'includes/init.php';
 
 // Set response type to JSON so frontend knows it's JSON data
 header('Content-Type: application/json');
 
 // Check if user is logged in - required to book any class
-if (!isset($_SESSION['user_id'])) {
-    // If not logged in, return JSON saying they can't book and why
+$userId = currentUserId();
+if ($userId === null) {
     echo json_encode([
         'canBook' => false,
         'reason' => 'Please login to book classes.'
@@ -52,7 +47,7 @@ $is_kids_class = ($class['age_group'] === 'Kids');
 // Call the membership rules function to check if user can book this class
 // It checks membership tier, session limits, martial art restrictions, etc.
 // Returns array with 'can_book' boolean and 'reason' message
-$result = canUserBookClass($_SESSION['user_id'], $class['martial_art'], $is_kids_class, $class['class_name']);
+$result = canUserBookClass($userId, $class['martial_art'], $is_kids_class, $class['class_name']);
 
 // Send back the booking eligibility as JSON
 // Frontend receives this and allows or prevents the booking

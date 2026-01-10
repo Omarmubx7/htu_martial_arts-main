@@ -1,15 +1,9 @@
 <?php
-session_start();
-include 'includes/db.php';
-include 'includes/bookings.php';
-include 'includes/membership_rules.php';
-
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit();
-}
+require_once 'includes/init.php';
+requireLogin();
 
 $pageTitle = 'Dashboard';
+$userId = currentUserId();
 
 $dashboardError = '';
 $successMessage = $_SESSION['success_message'] ?? '';
@@ -18,7 +12,6 @@ if (!empty($successMessage)) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $userId = intval($_SESSION['user_id']);
 
     if (isset($_POST['update_martial_art'])) {
         $primarySelection = trim($_POST['martial_art'] ?? '');
@@ -82,7 +75,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Fetch user details with their membership information from database using prepared statements
 // Using prepared statement with a JOIN to get both user info AND their membership plan
 // The LEFT JOIN ensures we get user data even if they don't have a membership yet
-$userId = intval($_SESSION['user_id']);  // Safely convert session ID to integer
 $user = null;
 $membership = null;
 // This SELECT statement JOINs the users table with the memberships table

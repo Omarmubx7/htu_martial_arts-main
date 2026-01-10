@@ -1,8 +1,5 @@
 <?php
-// SECURITY: Start session at the very top for secure session handling
-session_start();
-include 'includes/db.php';
-include 'includes/membership_rules.php';  // Include functions that check if user can book each class
+require_once 'includes/init.php';
 $pageTitle = "Class Timetable";
 include 'includes/header.php';
 ?>

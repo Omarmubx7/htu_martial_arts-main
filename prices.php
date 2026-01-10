@@ -1,7 +1,6 @@
-<?php 
-session_start();
-include 'includes/db.php';
-include 'includes/membership_rules.php';
+<?php
+require_once 'includes/init.php';
+
 $pageTitle = "Prices";
 
 $martialArts = ['Jiu-jitsu', 'Judo', 'Karate', 'Muay Thai'];

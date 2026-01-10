@@ -5,15 +5,8 @@
  * Admins can create class schedules, edit times, and delete classes
  */
 
-session_start();
-include 'includes/db.php';
-
-// Security check: only admins can manage classes
-// If user is not logged in or not an admin, redirect them to homepage
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header('Location: index.php');
-    exit();
-}
+require_once 'includes/init.php';
+requireAdmin();
 
 // Get the action from URL or POST data to determine what operation to perform
 // Examples: action=create, action=delete, action=edit, action=update
