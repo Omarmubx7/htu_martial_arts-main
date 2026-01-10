@@ -5,25 +5,38 @@
  */
 
 // Database server hostname or IP address
-$servername = "127.0.0.1";
+// TIP: On shared hosting, set these via env vars if possible.
+$servername = getenv('DB_HOST') ?: "sql306.infinityfree.com";
 
-// MySQL username - default XAMPP user is "root"
-$username = "root";
+// MySQL username
+$username = getenv('DB_USER') ?: "if0_40779796";
 
-// MySQL password - default XAMPP password is empty string ""
-$password = "";
+// MySQL password
+// IMPORTANT: remove accidental trailing spaces (common copy/paste issue)
+$password = getenv('DB_PASS');
+if ($password === false || $password === null) {
+    $password = "bthxxGE0EJo5";
+}
+$password = rtrim($password);
 
 // Database name
-$dbname = "htu_martial_arts";
+$dbname = getenv('DB_NAME') ?: "if0_40779796_htu_martial_arts";
 
-// MySQL port number - XAMPP often uses 3307
-$port = 3307;
+// MySQL port
+// InfinityFree / most hosts use 3306 (XAMPP sometimes uses 3307 locally).
+$port = intval(getenv('DB_PORT') ?: 3306);
 
 // Create connection once (some pages may include init multiple times via other includes)
 if (!isset($conn) || !($conn instanceof mysqli)) {
     $conn = new mysqli($servername, $username, $password, $dbname, $port);
 
     if ($conn->connect_error) {
-        die("Connection failed: " . $conn->connect_error);
+        error_log('DB connection failed: ' . $conn->connect_error);
+        die('Database connection failed. Please try again later.');
+    }
+
+    // Ensure consistent character encoding
+    if (!$conn->set_charset('utf8mb4')) {
+        error_log('Failed to set DB charset: ' . $conn->error);
     }
 }
