@@ -3,37 +3,23 @@ require_once 'includes/init.php';
 
 $pageTitle = "Prices";
 
-$martialArts = ['Jiu-jitsu', 'Judo', 'Karate', 'Muay Thai'];
+$martialArts = getMartialArtsList();
 $currentPlanNormalized = '';
 $currentPrimaryArt = '';
 $currentSecondaryArt = '';
 $errorMessage = '';
 
 if (isset($_SESSION['user_id'])) {
-    $userInfoStmt = $conn->prepare('SELECT u.chosen_martial_art, u.chosen_martial_art_2, m.type AS membership_type FROM users u LEFT JOIN memberships m ON u.membership_id = m.id WHERE u.id = ?');
-    if ($userInfoStmt) {
-        $userInfoStmt->bind_param('i', $_SESSION['user_id']);
-        $userInfoStmt->execute();
-        $userInfo = $userInfoStmt->get_result()->fetch_assoc() ?: [];
-        $currentPlanNormalized = normalizeMembershipType($userInfo['membership_type'] ?? '');
-        $currentPrimaryArt = $userInfo['chosen_martial_art'] ?? '';
-        $currentSecondaryArt = $userInfo['chosen_martial_art_2'] ?? '';
-        $userInfoStmt->close();
-    }
+    $userInfo = getUserPlanInfo((int)$_SESSION['user_id']);
+    $currentPlanNormalized = normalizeMembershipType($userInfo['membership_type'] ?? '');
+    $currentPrimaryArt = $userInfo['chosen_martial_art'] ?? '';
+    $currentSecondaryArt = $userInfo['chosen_martial_art_2'] ?? '';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
     $planId = isset($_POST['plan_id']) ? intval($_POST['plan_id']) : null;
     if ($planId) {
-        $planStmt = $conn->prepare('SELECT type FROM memberships WHERE id = ?');
-        if ($planStmt) {
-            $planStmt->bind_param('i', $planId);
-            $planStmt->execute();
-            $planData = $planStmt->get_result()->fetch_assoc();
-            $planStmt->close();
-        } else {
-            $planData = [];
-        }
+        $planData = getMembershipPlanById((int)$planId) ?: [];
 
         $selectedPlanType = $planData['type'] ?? '';
         $selectedPlanNormalized = normalizeMembershipType($selectedPlanType);
@@ -51,14 +37,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
             if ($updateStmt) {
                 $updateStmt->bind_param('issi', $planId, $martialArtToSave, $martialArtSecondaryToSave, $_SESSION['user_id']);
                 if ($updateStmt->execute()) {
-                    $_SESSION['success_message'] = 'Membership plan updated successfully!';
-                    header('Location: dashboard.php');
-                    exit();
+                    addFlashToast('Membership plan updated successfully!', 'success');
+                    redirectTo('dashboard.php');
                 }
             }
             $errorMessage = 'Unable to update your membership. Please try again.';
         }
     }
+}
+
+if (!empty($errorMessage)) {
+    addFlashToast($errorMessage, 'danger');
+    $errorMessage = '';
 }
 
 include 'includes/header.php'; 
@@ -76,25 +66,15 @@ include 'includes/header.php';
         <!-- Subheading with standard color and sizing -->
         <p style="color: #666; font-size: 1.05rem; font-weight: 400;">Choose the plan that fits your training goals</p>
     </div>
-    <?php if (!empty($errorMessage)): ?>
-    <div class="alert alert-error text-center mb-4">
-        <?php echo htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8'); ?>
-    </div>
-    <?php endif; ?>
     
     <!-- Responsive grid for membership cards -->
     <!-- Using Bootstrap grid system for mobile responsiveness -->
     <div class="row justify-content-center g-4">
         <?php
-        // SELECT all membership plans from database
-        // Fetches plan name, price, description, and ID for display
-        $stmt = $conn->prepare("SELECT id, type, price, description FROM memberships");
-        $stmt->execute();
-        $result = $stmt->get_result();
+        $plans = getAllMembershipPlans();
 
-        // Check if any plans exist in database, then loop through each one
-        if ($result->num_rows > 0) {
-            while($row = $result->fetch_assoc()) {
+        if (!empty($plans)) {
+            foreach ($plans as $row) {
                 $planNormalized = normalizeMembershipType($row['type']);
                 $requiresSecondArtField = $planNormalized === 'advanced' && in_array($currentPlanNormalized, ['basic', 'intermediate'], true);
                 // Create a membership card for each plan
@@ -157,7 +137,6 @@ include 'includes/header.php';
                 echo '</div>';
             }
         }
-        $stmt->close();
         ?>
     </div>
 </div>

@@ -8,6 +8,8 @@
 require_once 'includes/init.php';
 $pageTitle = "Login";
 
+$error = '';
+
 // ===================================================================
 // HANDLE LOGIN LOGIC - Process form submission
 // ===================================================================
@@ -46,11 +48,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Redirect to different pages based on user role
             // Admins go to admin panel, regular members go to their dashboard
             if ($role === 'admin') {
-                header("Location: admin.php");
+                redirectTo('admin.php');
             } else {
-                header("Location: dashboard.php");
+                redirectTo('dashboard.php');
             }
-            exit();
         } else {
             // Password doesn't match - show generic error
             // Security best practice: don't say which field was wrong (prevents email enumeration)
@@ -62,6 +63,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = "Invalid email or password.";
     }
 }
+
+if (!empty($error)) {
+    addFlashToast($error, 'danger');
+    $error = '';
+}
+
+if (isset($_SESSION['success'])) {
+    $success = (string)$_SESSION['success'];
+    unset($_SESSION['success']);
+    if ($success !== '') {
+        addFlashToast($success, 'success');
+    }
+}
+
 include 'includes/header.php';
 ?>
 
@@ -70,23 +85,6 @@ include 'includes/header.php';
 <div class="container" style="padding: 80px 0; min-height: 70vh; display: flex; align-items: center;">
     <!-- Inner wrapper - centers form horizontally -->
     <div style="width: 100%; max-width: 420px; margin: 0 auto;">
-        <!-- Show error message if login failed -->
-        <!-- Uses semi-transparent red background for error states -->
-        <?php if(isset($error)): ?>
-            <div style="background: rgba(220,20,60,0.1); border: 1px solid rgba(220,20,60,0.3); color: #DC143C; padding: 16px; border-radius: 12px; margin-bottom: 20px; font-weight: 500;">
-                <i class="bi bi-exclamation-circle me-2"></i><?php echo htmlspecialchars($error); ?>
-            </div>
-        <?php endif; ?>
-        
-        <!-- Show success message if one exists (e.g., from signup redirect) -->
-        <!-- Uses semi-transparent green background for success states -->
-        <?php if(isset($_SESSION['success'])): ?>
-            <div style="background: rgba(52,227,127,0.1); border: 1px solid rgba(52,227,127,0.3); color: #34e37f; padding: 16px; border-radius: 12px; margin-bottom: 20px; font-weight: 500;">
-                <i class="bi bi-check-circle me-2"></i><?php echo htmlspecialchars($_SESSION['success']); ?>
-            </div>
-            <!-- Remove success message so it doesn't show again on next page load -->
-            <?php unset($_SESSION['success']); ?>
-        <?php endif; ?>
         
         <!-- Login form with glass-panel styling (white background with shadow) -->
         <!-- Consistent padding and border-radius across all form pages -->

@@ -5,28 +5,28 @@
  */
 
 if (!function_exists('isLoggedIn')) {
-    function isLoggedIn(): bool
+    function isLoggedIn()
     {
         return !empty($_SESSION['user_id']) && is_numeric($_SESSION['user_id']);
     }
 }
 
 if (!function_exists('isAdmin')) {
-    function isAdmin(): bool
+    function isAdmin()
     {
         return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
     }
 }
 
 if (!function_exists('currentUserId')) {
-    function currentUserId(): ?int
+    function currentUserId()
     {
         return isLoggedIn() ? intval($_SESSION['user_id']) : null;
     }
 }
 
 if (!function_exists('redirectTo')) {
-    function redirectTo(string $url): void
+    function redirectTo($url)
     {
         header('Location: ' . $url);
         exit;
@@ -34,7 +34,7 @@ if (!function_exists('redirectTo')) {
 }
 
 if (!function_exists('requireLogin')) {
-    function requireLogin(string $redirect = 'login.php'): void
+    function requireLogin($redirect = 'login.php')
     {
         if (!isLoggedIn()) {
             redirectTo($redirect);
@@ -43,7 +43,7 @@ if (!function_exists('requireLogin')) {
 }
 
 if (!function_exists('requireAdmin')) {
-    function requireAdmin(string $redirect = 'login.php'): void
+    function requireAdmin($redirect = 'login.php')
     {
         requireLogin($redirect);
         if (!isAdmin()) {

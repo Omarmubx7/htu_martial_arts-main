@@ -6,10 +6,6 @@ $pageTitle = 'Dashboard';
 $userId = currentUserId();
 
 $dashboardError = '';
-$successMessage = $_SESSION['success_message'] ?? '';
-if (!empty($successMessage)) {
-    unset($_SESSION['success_message']);
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -50,9 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($updateStmt) {
                 $updateStmt->bind_param('ssi', $primarySelection, $secondarySelection, $userId);
                 if ($updateStmt->execute()) {
-                    $_SESSION['success_message'] = 'Martial arts updated.';
-                    header('Location: dashboard.php');
-                    exit();
+                    addFlashToast('Martial arts updated.', 'success');
+                    redirectTo('dashboard.php');
                 }
             }
             $dashboardError = 'Unable to save your preferences. Please try again.';
@@ -63,13 +58,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dashboardError = 'Invalid booking selected.';
         } elseif (cancelBooking($bookingId, $userId)) {
             decrementUserSessions($userId);
-            $_SESSION['success_message'] = 'Booking cancelled and your session credit was restored.';
-            header('Location: dashboard.php');
-            exit();
+            addFlashToast('Booking cancelled and your session credit was restored.', 'success');
+            redirectTo('dashboard.php');
         } else {
             $dashboardError = 'Unable to cancel the booking. Please try again.';
         }
     }
+}
+
+if (!empty($dashboardError)) {
+    addFlashToast($dashboardError, 'danger');
+    $dashboardError = '';
 }
 
 // Fetch user details with their membership information from database using prepared statements
@@ -112,22 +111,12 @@ $userPrimaryMartialArt = $user ? ($user['chosen_martial_art'] ?? '') : '';
 $userSecondaryMartialArt = $user ? ($user['chosen_martial_art_2'] ?? '') : '';
 $currentPlanNormalized = $user ? normalizeMembershipType($user['membership_type'] ?? '') : '';
 
-$martialArts = ['Jiu-jitsu', 'Judo', 'Karate', 'Muay Thai'];
+$martialArts = getMartialArtsList();
 
 include 'includes/header.php';
 ?>
 
 <div class="container page-section">
-    <?php if (!empty($successMessage)): ?>
-    <div class="alert alert-success text-center">
-        <?php echo htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8'); ?>
-    </div>
-    <?php endif; ?>
-    <?php if (!empty($dashboardError)): ?>
-    <div class="alert alert-error text-center">
-        <?php echo htmlspecialchars($dashboardError, ENT_QUOTES, 'UTF-8'); ?>
-    </div>
-    <?php endif; ?>
     <!-- Header with greeting - style="font-size: 2.5rem" makes it big and prominent -->
     <div class="text-center mb-5">
         <h2 class="fw-bold text-deep-dark" style="margin-bottom: 0.5rem;"><i class="bi bi-speedometer2 me-3 text-primary"></i>My Dashboard</h2>

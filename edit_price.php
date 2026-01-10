@@ -29,13 +29,11 @@ if (isset($_GET['id'])) {
     
     // If membership not found in database, redirect to admin page
     if (!$price) {
-        header("Location: admin.php");
-        exit();
+        redirectTo('admin.php');
     }
 } else {
     // If no ID was provided in URL, redirect to admin page
-    header("Location: admin.php");
-    exit();
+    redirectTo('admin.php');
 }
 
 // ====================================================================
@@ -58,8 +56,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Execute the UPDATE query
     if ($stmt->execute()) {
-        // If update successful, show success message and redirect to admin
-        echo "<script>alert('Price Updated!'); window.location.href='admin.php';</script>";
+        addFlashToast('Price updated.', 'success');
+        redirectTo('admin.php');
     }
 }
 ?>

@@ -11,6 +11,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/flash.php';
+require_once __DIR__ . '/lookups.php';
 require_once __DIR__ . '/membership_rules.php';
-require_once __DIR__ . '/bookings.php';
+require_once __DIR__ . '/booking_store.php';
     

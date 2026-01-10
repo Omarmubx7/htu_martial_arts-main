@@ -12,16 +12,18 @@ function cleanArtName($text) {
     return strtolower(preg_replace('/[^a-zA-Z]/', '', (string)$text));
 }
 
-function normalizeMembershipType(?string $raw): string {
+function normalizeMembershipType($raw) {
     $raw = strtolower(trim((string)$raw));
-    if (str_contains($raw, 'junior')) return 'junior';
-    if (str_contains($raw, 'elite')) return 'elite';
-    if (str_contains($raw, 'advanced')) return 'advanced';
-    if (str_contains($raw, 'intermediate')) return 'intermediate';
-    if (str_contains($raw, 'basic')) return 'basic';
-    if (str_contains($raw, 'self-defence') || str_contains($raw, 'defense')) return 'self-defence'; 
-    if (str_contains($raw, 'private')) return 'private'; 
-    if (str_contains($raw, 'fitness')) return 'fitness'; 
+
+    // Use strpos for broader PHP compatibility (instead of str_contains).
+    if (strpos($raw, 'junior') !== false) return 'junior';
+    if (strpos($raw, 'elite') !== false) return 'elite';
+    if (strpos($raw, 'advanced') !== false) return 'advanced';
+    if (strpos($raw, 'intermediate') !== false) return 'intermediate';
+    if (strpos($raw, 'basic') !== false) return 'basic';
+    if (strpos($raw, 'self-defence') !== false || strpos($raw, 'defense') !== false) return 'self-defence';
+    if (strpos($raw, 'private') !== false) return 'private';
+    if (strpos($raw, 'fitness') !== false) return 'fitness';
     return 'unknown';
 }
 
@@ -66,7 +68,10 @@ function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false, 
     $user_art_1      = cleanArtName($user['chosen_martial_art']);
     $user_art_2      = cleanArtName($user['chosen_martial_art_2'] ?? '');
     $normalized_class_name = strtolower(trim((string)$class_name));
-    $is_general_access_class = $normalized_class_name !== '' && (str_contains($normalized_class_name, 'open mat') || str_contains($normalized_class_name, 'personal training'));
+    $is_general_access_class = $normalized_class_name !== '' && (
+        strpos($normalized_class_name, 'open mat') !== false ||
+        strpos($normalized_class_name, 'personal training') !== false
+    );
 
     // 3. Switch Logic per Plan
     switch ($plan) {
@@ -136,7 +141,7 @@ function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false, 
             }
             
             // Rule B: No Private Tuition (Additional Cost)
-            if (str_contains($class_art_clean, 'private')) {
+              if (strpos($class_art_clean, 'private') !== false) {
                  return ['can_book' => false, 'reason' => 'Private tuition is not included in Elite membership.'];
             }
             
@@ -159,7 +164,7 @@ function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false, 
         // =========================================================
         case 'self-defence':
             // Rule A: Only Self-Defence Classes
-            if (!str_contains($class_art_clean, 'defence')) {
+            if (strpos($class_art_clean, 'defence') === false) {
                 return ['can_book' => false, 'reason' => 'This account is for the Self-Defence course only.'];
             }
 
@@ -180,7 +185,7 @@ function canUserBookClass($user_id, $class_martial_art, $is_kids_class = false, 
         // TIER 6: Private Tuition & Fitness
         // =========================================================
         case 'private':
-            if (!str_contains($class_art_clean, 'private')) {
+            if (strpos($class_art_clean, 'private') === false) {
                 return ['can_book' => false, 'reason' => 'This account is for Private Tuition bookings only.'];
             }
             break;

@@ -11,7 +11,7 @@ if (PHP_SAPI !== 'cli') {
     exit;
 }
 
-require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/init.php';
 
 $stmt = $conn->prepare("UPDATE users SET sessions_used_this_week = 0");
 if (!$stmt) {

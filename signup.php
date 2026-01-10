@@ -7,23 +7,14 @@ $pageTitle = "Sign Up";
 // This makes sure users can't just skip the prices page and signup without selecting a plan
 $planId = isset($_GET['plan_id']) ? intval($_GET['plan_id']) : null;
 if (!$planId) {
-    header('Location: prices.php');
-    exit();
+    redirectTo('prices.php');
 }
 
 // Fetch the selected membership plan from database
 // Using a prepared statement to avoid SQL injection - safer than just putting the ID directly in the query
-$selectedPlan = null;
-$planStmt = $conn->prepare("SELECT id, type, price, description FROM memberships WHERE id = ?");
-$planStmt->bind_param("i", $planId);
-$planStmt->execute();
-$planResult = $planStmt->get_result();
-if ($planResult && $planResult->num_rows === 1) {
-    $selectedPlan = $planResult->fetch_assoc();
-} else {
-    // Invalid plan ID - redirect to prices
-    header('Location: prices.php');
-    exit();
+$selectedPlan = getMembershipPlanById((int)$planId);
+if (!$selectedPlan) {
+    redirectTo('prices.php');
 }
 
 $error = '';
@@ -42,18 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $martialArt = trim($_POST['martial_art'] ?? '');
     $martialArtSecondary = trim($_POST['martial_art_secondary'] ?? '');
 
-    // Query database to get membership type - needed to check which fields are required
-    // Like if they picked "Basic" plan, they MUST choose a martial art
-    $membershipType = null;
-    if ($planId) {
-        $membershipStmt = $conn->prepare("SELECT type FROM memberships WHERE id = ?");
-        $membershipStmt->bind_param("i", $planId);
-        $membershipStmt->execute();
-        $membershipResult = $membershipStmt->get_result();
-        if ($membershipResult && $membershipResult->num_rows > 0) {
-            $membershipType = $membershipResult->fetch_assoc()['type'];
-        }
-    }
+    // Re-fetch the plan safely (don't trust the hidden input).
+    $freshPlan = $planId ? getMembershipPlanById((int)$planId) : null;
+    $membershipType = $freshPlan['type'] ?? null;
 
     // Validate martial art selection for certain membership tiers
     // Basic, Intermediate, and Advanced plans require the user to pick which martial art they want
@@ -94,13 +76,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['username'] = $username;
 
                 // Send them to their dashboard now that they're signed up and logged in
-                header('Location: dashboard.php');
-                exit();
+                redirectTo('dashboard.php');
             } else {
                 $error = 'Error creating account. Please try again.';
             }
         }
     }
+}
+
+if (!empty($error)) {
+    addFlashToast($error, 'danger');
+    $error = '';
 }
 
 include 'includes/header.php';
@@ -123,17 +109,10 @@ include 'includes/header.php';
         <!-- Show which plan the user selected - using inline styles for light purple background -->
         <!-- style="background: rgba(95,92,241,0.1)" is a very light purple with transparency -->
         <?php if ($selectedPlan): ?>
-            <div class="alert alert-info">
-                <i class="bi bi-star-fill me-2"></i>You are signing up for the <strong><?php echo htmlspecialchars($selectedPlan['type']); ?></strong> plan
+            <div class="glass-panel p-3 mb-4">
+                <i class="bi bi-star-fill me-2 text-primary"></i>
+                You are signing up for the <strong><?php echo htmlspecialchars($selectedPlan['type']); ?></strong> plan
                 ($<?php echo number_format($selectedPlan['price'], 2); ?>/month)
-            </div>
-        <?php endif; ?>
-
-        <!-- Display validation errors if any - using inline red background to alert user -->
-        <!-- style="background: rgba(220,20,60,0.1)" is a very light red, "color: #DC143C" is bright red -->
-        <?php if (!empty($error)): ?>
-            <div class="alert alert-error">
-                <i class="bi bi-exclamation-circle me-2"></i><?php echo htmlspecialchars($error); ?>
             </div>
         <?php endif; ?>
 
@@ -196,8 +175,8 @@ include 'includes/header.php';
             </div>
             <?php endif; ?>
             <?php elseif ($selectedPlan && $selectedPlan['type'] === 'Junior'): ?>
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle me-2"></i>Your plan includes access to all Kids classes!
+            <div class="glass-panel p-3 mb-4">
+                <i class="bi bi-info-circle me-2 text-primary"></i>Your plan includes access to all Kids classes!
             </div>
             <?php endif; ?>
 

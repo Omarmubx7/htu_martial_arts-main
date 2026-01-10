@@ -1,8 +1,7 @@
 <?php
-// SECURITY: Start session immediately to ensure secure session handling before any output
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Keep bootstrapping in one place.
+// This ensures session + DB connection + helpers are ready before any HTML output.
+require_once __DIR__ . '/init.php';
 ?>
 <!-- includes/header.php -->
 <!-- This is the shared header template used by all pages -->

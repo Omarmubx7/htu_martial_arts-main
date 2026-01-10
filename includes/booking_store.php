@@ -1,13 +1,15 @@
 <?php
 /**
- * includes/bookings.php
- * Handles booking persistence helpers.
+ * includes/booking_store.php
+ * Database operations for bookings + weekly session counters.
  */
 
-function recordBooking(int $userId, int $classId): bool
+function recordBooking($userId, $classId)
 {
     global $conn;
 
+    $userId = intval($userId);
+    $classId = intval($classId);
     if ($userId <= 0 || $classId <= 0) {
         return false;
     }
@@ -21,12 +23,18 @@ function recordBooking(int $userId, int $classId): bool
     $success = $stmt->execute();
     $stmt->close();
 
-    return (bool) $success;
+    return (bool)$success;
 }
 
-function bookingExists(int $userId, int $classId): bool
+function bookingExists($userId, $classId)
 {
     global $conn;
+
+    $userId = intval($userId);
+    $classId = intval($classId);
+    if ($userId <= 0 || $classId <= 0) {
+        return false;
+    }
 
     $stmt = $conn->prepare('SELECT 1 FROM bookings WHERE user_id = ? AND class_id = ? LIMIT 1');
     if (!$stmt) {
@@ -42,10 +50,11 @@ function bookingExists(int $userId, int $classId): bool
     return $exists;
 }
 
-function incrementUserSessions(int $userId): bool
+function incrementUserSessions($userId)
 {
     global $conn;
 
+    $userId = intval($userId);
     if ($userId <= 0) {
         return false;
     }
@@ -59,13 +68,15 @@ function incrementUserSessions(int $userId): bool
     $success = $stmt->execute();
     $stmt->close();
 
-    return (bool) $success;
+    return (bool)$success;
 }
 
-function cancelBooking(int $bookingId, int $userId): bool
+function cancelBooking($bookingId, $userId)
 {
     global $conn;
 
+    $bookingId = intval($bookingId);
+    $userId = intval($userId);
     if ($bookingId <= 0 || $userId <= 0) {
         return false;
     }
@@ -79,13 +90,14 @@ function cancelBooking(int $bookingId, int $userId): bool
     $success = $stmt->execute();
     $stmt->close();
 
-    return (bool) $success;
+    return (bool)$success;
 }
 
-function decrementUserSessions(int $userId): bool
+function decrementUserSessions($userId)
 {
     global $conn;
 
+    $userId = intval($userId);
     if ($userId <= 0) {
         return false;
     }
@@ -99,5 +111,5 @@ function decrementUserSessions(int $userId): bool
     $success = $stmt->execute();
     $stmt->close();
 
-    return (bool) $success;
+    return (bool)$success;
 }

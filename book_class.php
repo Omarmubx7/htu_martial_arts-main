@@ -29,25 +29,25 @@ try {
     );
 
     if (!$access_check['can_book']) {
-        throw new RuntimeException($access_check['reason'] ?? 'You cannot book this class.');
+        throw new Exception($access_check['reason'] ?? 'You cannot book this class.');
     }
 
     if (bookingExists($userId, $class_id)) {
-        throw new RuntimeException('You already booked this class.');
+        throw new Exception('You already booked this class.');
     }
 
     if (!recordBooking($userId, $class_id)) {
-        throw new RuntimeException('Failed to save your booking.');
+        throw new Exception('Failed to save your booking.');
     }
 
     if (!incrementUserSessions($userId)) {
-        throw new RuntimeException('Failed to update your weekly session count.');
+        throw new Exception('Failed to update your weekly session count.');
     }
 
     $conn->commit();
-} catch (Throwable $e) {
+} catch (Exception $e) {
     $conn->rollback();
-    $_SESSION['booking_error'] = $e->getMessage();
+    addFlashToast($e->getMessage(), 'danger');
     redirectTo('classes_premium.php');
 }
 

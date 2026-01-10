@@ -27,13 +27,12 @@ include 'includes/header.php';
     <div class="divider divider-primary mb-3"></div>
 
     <!-- Form to Add New Instructor -->
-    <!-- This form POSTs to instructors_manage.php to INSERT a new instructor into database -->
+    <!-- This form posts to admin_actions.php to create a new instructor -->
     <!-- Using glass-panel class for semi-transparent background styling -->
     <div class="glass-panel p-4 mb-4">
         <h4>Add a New Instructor</h4>
-        <!-- Form action points to instructors_manage.php with action=create parameter -->
-        <!-- This triggers the CREATE logic in that file to INSERT the new instructor -->
-        <form action="instructors_manage.php?action=create" method="POST">
+        <!-- Form action points to admin_actions.php (resource=instructor, action=create) -->
+        <form action="admin_actions.php?resource=instructor&action=create" method="POST">
             <div class="row">
                 <!-- Instructor name field -->
                 <div class="col-md-4 mb-3">
@@ -78,9 +77,9 @@ include 'includes/header.php';
                     echo "<td>" . htmlspecialchars($row['specialty'], ENT_QUOTES, 'UTF-8') . "</td>";
                     echo '<td>';
                     // EDIT BUTTON
-                    echo '<a href="instructors_manage.php?action=edit&id=' . intval($row['id']) . '" class="btn btn-warning btn-sm me-2">Edit</a>';
+                    echo '<a href="admin_actions.php?resource=instructor&action=edit&id=' . intval($row['id']) . '" class="btn btn-warning btn-sm me-2">Edit</a>';
                     // DELETE BUTTON
-                    echo '<a href="instructors_manage.php?action=delete&id=' . intval($row['id']) . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Are you sure?\')">Delete</a>';
+                    echo '<a href="admin_actions.php?resource=instructor&action=delete&id=' . intval($row['id']) . '" class="btn btn-danger btn-sm" onclick="return confirm(\'Are you sure?\')">Delete</a>';
                     echo '</td>';
                     echo "</tr>";
                 }
@@ -102,7 +101,7 @@ include 'includes/header.php';
     <!-- Form to Add New Class -->
     <div class="glass-panel p-4 mb-4">
         <h4 class="mb-3"><i class="bi bi-plus-lg me-2"></i>Add a New Class</h4>
-        <form action="classes_manage.php?action=create" method="POST">
+        <form action="admin_actions.php?resource=class&action=create" method="POST">
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label>Class Name</label>
@@ -171,8 +170,8 @@ include 'includes/header.php';
                     echo "<td>" . htmlspecialchars($row['day_of_week'], ENT_QUOTES, 'UTF-8') . "</td>";
                     echo "<td>" . htmlspecialchars($row['start_time'], ENT_QUOTES, 'UTF-8') . " - " . htmlspecialchars($row['end_time'], ENT_QUOTES, 'UTF-8') . "</td>";
                     echo "<td>";
-                    echo "<a href='classes_manage.php?action=edit&id=" . intval($row['id']) . "' class='btn btn-warning btn-sm me-2'>Edit</a>";
-                    echo "<a href='classes_manage.php?action=delete&id=" . intval($row['id']) . "' class='btn btn-danger btn-sm' onclick='return confirm(\\\"Are you sure?\\\")'>Delete</a>";
+                    echo "<a href='admin_actions.php?resource=class&action=edit&id=" . intval($row['id']) . "' class='btn btn-warning btn-sm me-2'>Edit</a>";
+                    echo "<a href='admin_actions.php?resource=class&action=delete&id=" . intval($row['id']) . "' class='btn btn-danger btn-sm' onclick='return confirm(\\\"Are you sure?\\\")'>Delete</a>";
                     echo "</td>";
                     echo "</tr>";
                 }
